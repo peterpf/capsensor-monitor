@@ -4,6 +4,7 @@ from matplotlib.axis import Axis
 from matplotlib.artist import Artist
 from pipeline import PipelineResult
 
+
 def draw_timeseries(ax: Axis, data: np.ndarray):
     """Draw time series data for a single top-k figure.
 
@@ -17,7 +18,7 @@ def draw_timeseries(ax: Axis, data: np.ndarray):
 
     # Plot data
     for i in range(data.shape[1]):
-        ax.plot(data[:,i])
+        ax.plot(data[:, i])
 
     # Adjust y-axis limits with some offset so all data is in the view.
     ymin, ymax = (np.nanmin(data), np.nanmax(data))
@@ -27,6 +28,7 @@ def draw_timeseries(ax: Axis, data: np.ndarray):
     ax.set_ylim(ymin, ymax)
     # Hide y-axis labels because they don't show up in the animation anyways.
     ax.set_yticklabels([])
+
 
 def draw_top_k_timeseries(top_k_data: np.ndarray, axis: list[Axis], pipeline_result: PipelineResult) -> list[Artist]:
     """Draw timeseries graphs for the top-k clusters.
@@ -42,7 +44,7 @@ def draw_top_k_timeseries(top_k_data: np.ndarray, axis: list[Axis], pipeline_res
     clusters = pipeline_result.anomaly_clusters
 
     # Draw the affected sensor cells on each axis
-    clusters.sort(key = lambda c: c.id)
+    clusters.sort(key=lambda c: c.id)
     for idx, cluster in enumerate(clusters):
         # Assure we have enough axis to draw the clusters
         if idx >= len(axis):
@@ -53,7 +55,8 @@ def draw_top_k_timeseries(top_k_data: np.ndarray, axis: list[Axis], pipeline_res
 
     return axis
 
-def draw_annotated_matplotlib_heatmap(axis: Axis, sensor_shape: tuple, raw_data: np.array, pipeline_result: PipelineResult) -> list[Artist]:
+
+def draw_annotated_matplotlib_heatmap(axis: Axis, sensor_shape: tuple, pipeline_result: PipelineResult) -> list[Artist]:
     """Renders the frame with a heatmap which visualizes the contact points.
     Each contact point is its own cluster with a unique label.
     A sequential color scale is used, it only references the normalized cell values from the clusters.
@@ -65,9 +68,7 @@ def draw_annotated_matplotlib_heatmap(axis: Axis, sensor_shape: tuple, raw_data:
     :type axis: matplotlib.axis.Axis
     :param sensor_shape: Shape of the sensor
     :type sensor_shape: tuple[int, int]
-    :param raw_data: The unfiltered, raw data, used for plotting the heatmap
-    :type raw_data: np.ndarray
-    :param pipeline_result: The pipeline result containing the filtered data and clustered anomaly-regions.
+    :param pipeline_result: The pipeline result containing the raw/filtered data and clustered anomaly-regions.
     :type pipeline_result: PipelineResult
     :return: List of Artist objects to animate
     """
@@ -89,12 +90,10 @@ def draw_annotated_matplotlib_heatmap(axis: Axis, sensor_shape: tuple, raw_data:
     # Insert raw data from the contact point clusters
     for cluster in pipeline_result.anomaly_clusters:
         cell_ids = cluster.sensor_cell_indezes
-        heatmap_data[cell_ids] = raw_data[cell_ids]
+        heatmap_data[cell_ids] = pipeline_result.raw_data[cell_ids]
 
     # Normalize heatmap_data to [0, 1] to map onto color scale.
-    normalizer = plt.Normalize(
-        vmin=np.nanmin(heatmap_data),
-        vmax=np.nanmax(heatmap_data))
+    normalizer = plt.Normalize(vmin=np.nanmin(heatmap_data), vmax=np.nanmax(heatmap_data))
     heatmap_data = normalizer(heatmap_data)
 
     # Select color scale and set color of invalid data to `black`.
@@ -106,8 +105,7 @@ def draw_annotated_matplotlib_heatmap(axis: Axis, sensor_shape: tuple, raw_data:
     heatmap = axis.imshow(cmap(heatmap_data_matrix), cmap=cmap, aspect="equal")
 
     # Create a matrix containing the sensor cell indezes
-    cell_matrix_mask = np.arange(np.multiply(*sensor_shape))\
-        .reshape(sensor_shape)
+    cell_matrix_mask = np.arange(np.multiply(*sensor_shape)).reshape(sensor_shape)
     for cluster in pipeline_result.anomaly_clusters:
         cluster_label = cluster.id
         cell_idxs = cluster.sensor_cell_indezes
@@ -116,6 +114,48 @@ def draw_annotated_matplotlib_heatmap(axis: Axis, sensor_shape: tuple, raw_data:
             for j in range(cell_matrix_mask.shape[1]):
                 if cell_matrix_mask[i, j] in cell_idxs:
                     axis.text(j, i, cluster_label, ha="center", va="center", color="black")
+
+    return heatmap, axis
+
+def draw_raw_signal_heatmap(axis: Axis, sensor_shape: tuple, raw_data: np.array, cmap=plt.cm.Greys_r):
+    """Renders a heatmap of the data for the given sensor_shape.
+    By default it uses the reversed 'Greys' color scale."""
+    # Clear the axis from previous draw
+    axis.clear()
+
+    # Holds data used for drawing the heatmap
+    heatmap_data = raw_data.copy()
+
+    # Normalize heatmap_data to [0, 1] to map onto color scale.
+    normalizer = plt.Normalize(vmin=np.nanmin(heatmap_data), vmax=np.nanmax(heatmap_data))
+    heatmap_data = normalizer(heatmap_data)
+
+    # Convert heatmap data to a matrix with the same dimensions as the sensor shape.
+    heatmap_data_matrix = np.reshape(heatmap_data, sensor_shape)
+    heatmap = axis.imshow(cmap(heatmap_data_matrix), cmap=cmap, aspect="equal")
+
+    return heatmap, axis
+
+def draw_filtered_signal_heatmap(axis: Axis, sensor_shape: tuple, filtered_data: np.array):
+    # Clear the axis from previous draw
+    axis.clear()
+
+    # Holds data used for drawing the heatmap
+    invalid_data_mask = filtered_data == 0
+    heatmap_data = filtered_data.copy()
+    heatmap_data[invalid_data_mask] = np.nan
+
+    # Normalize heatmap_data to [0, 1] to map onto color scale.
+    normalizer = plt.Normalize(vmin=np.nanmin(heatmap_data), vmax=np.nanmax(heatmap_data))
+    heatmap_data = normalizer(heatmap_data)
+
+    # Select color scale and set color of invalid data to `black`.
+    cmap = plt.cm.OrRd
+    cmap.set_bad(color="black")
+
+    # Convert heatmap data to a matrix with the same dimensions as the sensor shape.
+    heatmap_data_matrix = np.reshape(heatmap_data, sensor_shape)
+    heatmap = axis.imshow(cmap(heatmap_data_matrix), cmap=cmap, aspect="equal")
 
     return heatmap, axis
 
@@ -131,4 +171,4 @@ def draw_default_heatmap(axis: Axis, data_matrix: np.ndarray, cmap="gray") -> li
     """
 
     default_image = axis.imshow(data_matrix, cmap=cmap, animated=False)
-    return (default_image, )
+    return (default_image,)

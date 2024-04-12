@@ -10,8 +10,14 @@ from exceptions import ProcessorException
 class ProcessorResult:
     """Results of a single processor run"""
 
-    filtered_data: np.array
+    filtered_data: np.ndarray
     """Data that has been filtered and preprocessed for further analysis"""
+
+    scaled_data: np.ndarray
+    """Data that was filtered and then scaled with a MinMaxScaler."""
+
+    binary_data: np.ndarray
+    """Data that was filtered and scaled, then converted to a binary image."""
 
     interaction_cluster_labels: np.array
     """Holds the labels for each sensor cell clustered by anomalic regions."""
@@ -57,6 +63,7 @@ class Processor:
     def __init__(self, sensor_shape: tuple, sensitivity: float):
         self._sensor_shape = sensor_shape
         self._sensitivity = sensitivity
+        self.scaler = MinMaxScaler()
 
     def update_baseline(self, samples: list[np.array]):
         """Calculates baseline measurements on the given samples.
@@ -112,14 +119,16 @@ class Processor:
             raise ProcessorException("cannot process data, baseline not computed")
 
         # Adjust data to baseline (remove noise and level data to 0)
-        baseline_adjusted_data = self._adjust_data_to_baseline(data, self._baseline_mean, self._baseline_variance)
+        filtered_data = self._adjust_data_to_baseline(data, self._baseline_mean, self._baseline_variance)
 
-        # Scale the data
-        scaler = MinMaxScaler()
-        scaled_data = scaler.fit_transform(baseline_adjusted_data.reshape(-1, 1)).flatten()
+        # Scale the data to have the data closer to the unit scale (0-1).
+        scaled_data = self.scaler.fit_transform(filtered_data.reshape(-1, 1)).flatten()
 
-        cluster_labels = processor_utils.find_contact_points(self._sensor_shape, scaled_data)
-        anomaly_clusters = processor_utils.collect_anomaly_clusters(baseline_adjusted_data, cluster_labels)
+        binary_data = processor_utils.convert_to_binary_image(scaled_data)
+
+        binary_data_matrix = binary_data.reshape(self._sensor_shape)
+        cluster_labels = processor_utils.find_contact_points(binary_data_matrix)
+        anomaly_clusters = processor_utils.collect_anomaly_clusters(filtered_data, cluster_labels)
 
         # Track cluster movement and ideally assign the same labels.
         if len(self._prev_anomaly_clusters) > 0 and len(anomaly_clusters) > 0:
@@ -127,9 +136,11 @@ class Processor:
         self._prev_anomaly_clusters = anomaly_clusters
 
         result = ProcessorResult(
-            filtered_data=baseline_adjusted_data,
+            filtered_data=filtered_data,
+            scaled_data=scaled_data,
+            binary_data=binary_data,
             interaction_cluster_labels=cluster_labels,
-            anomaly_clusters=anomaly_clusters
+            anomaly_clusters=anomaly_clusters,
         )
 
         return result

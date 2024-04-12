@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from processor import Processor
 from processor_utils import AnomalyCluster
@@ -5,18 +6,32 @@ from dataclasses import dataclass
 import collections
 from exceptions import PipelineException
 
+
 @dataclass
 class PipelineResult:
     """Holds the result of a pipeline run"""
 
+    raw_data: np.array
+    """The raw data."""
+
     filtered_data: np.array
     """Contains the filtered (output) data array."""
+
+    scaled_data: np.ndarray
+    """Data that was filtered and then scaled with a MinMaxScaler."""
+
+    binary_data: np.ndarray
+    """Data that was filtered and scaled, then converted to a binary image."""
 
     anomaly_clusters: list[AnomalyCluster]
     """List of anomaly clusters which may reflect contact points on the sensor."""
 
     anomaly_cluster_labels: np.array
     """Holds the cluster labels for every sensor cell"""
+
+    processing_duration: int
+    """Time (in nanoseconds) it took to process the sample."""
+
 
 class Pipeline:
     """Preprocessing pipeline. The constructor takes the following arguments:
@@ -72,6 +87,7 @@ class Pipeline:
         :return: PipelineResult
         """
 
+        time_start = time.perf_counter_ns()
         self._processed_sample_count += 1
 
         # Wait until measurements have stabilized, skip data processing
@@ -92,10 +108,17 @@ class Pipeline:
         processor_result = self._processor.process(data)
         self._prev_processor_result = processor_result
 
+        time_end = time.perf_counter_ns()
+        duration = time_end - time_start
+
         pipeline_result = PipelineResult(
+            raw_data=data,
             filtered_data=processor_result.filtered_data,
+            scaled_data=processor_result.scaled_data,
+            binary_data=processor_result.binary_data,
             anomaly_clusters=processor_result.anomaly_clusters,
-            anomaly_cluster_labels=processor_result.interaction_cluster_labels
+            anomaly_cluster_labels=processor_result.interaction_cluster_labels,
+            processing_duration=duration,
         )
 
         return pipeline_result

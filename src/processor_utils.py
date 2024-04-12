@@ -16,35 +16,47 @@ class AnomalyCluster:
     avg_load: float
     """Average load of the sensor cells."""
 
-def find_contact_points(sensor_shape: tuple, data: np.array, background_label: int = 0) -> np.array:
-    """Identifies anomalies in the data and clusters them, returns the cluster labels as an array.
-        :param sensor_shape: tuple describing the sensor's shape.
-        :param data: one-dimensional array containing the image data.
-        :param background_label: the label that is assigned to background pixels.
-        :return: one-dimensional array with the corresponding labess of the input data.
-    """
 
+def convert_to_binary_image(data: np.array, background_label: int = 0) -> np.array:
+    """Converts the data to a binary image (0 = background, 1 = foreground).
+    The converter utilizes Otsu's method to determine the threshold level to separate
+    the foreground from the background.
+    If the threshold is too close to 0, the whole image is set to background,
+    because this indicates that there is only noise.
+
+    :param data: The data to convert
+    :type data: np.array
+    :returns: A binary image.
+    :rtype: np.array"""
     # Apply a threshold filter to convert the continuous data into binary image data (either 0 for background, or 1).
     threshold = skimage.filters.threshold_otsu(data)
+
     # Check that the threshold is not 0, it would catch all the noise
     if math.isclose(threshold, 0):
-        return np.repeat(background_label, np.multiply(*sensor_shape))
+        return np.zeros(data.shape)
+
     binary_image = data >= threshold
+    return binary_image.astype(int)
 
 
-    # Apply connected components analysis (CCA) on boolean image.
-    # The algorithm takes a two-dimensional array (the nrows x ncols matrix) as input.
-    data_matrix = binary_image.reshape(sensor_shape)
+def find_contact_points(data: np.ndarray, background_label: int = 0) -> np.array:
+    """Identifies anomalies in the data and clusters them, returns the cluster labels as an array.
+    :param data: An array of dimensions `sensor_shape` that contains binary image data (0's and 1's).
+    :type data: np.ndarray
+    :param background_label: the label that is assigned to background pixels.
+    :return: one-dimensional array with the corresponding labess of the input data.
+    """
+
     labels, _ = skimage.measure.label(
-        data_matrix,
+        data,
         background=background_label,
         return_num=True,
-        connectivity=None # Full-connectivity (8-connectivity)
+        connectivity=None,  # Full-connectivity (8-connectivity)
     )
     return labels.flatten()
 
 
-def collect_anomaly_clusters(data: np.array, cluster_labels: np.array, background_cluster_label = 0) -> list[AnomalyCluster]:
+def collect_anomaly_clusters(data: np.array, cluster_labels: np.array, background_cluster_label=0) -> list[AnomalyCluster]:
     """Returns the sensor cells in bundles of anomaly clusters.
 
     :param data: one-dimensional data array containing the measurements.
@@ -59,14 +71,13 @@ def collect_anomaly_clusters(data: np.array, cluster_labels: np.array, backgroun
         affected_sensor_cell_idx = np.where(cluster_labels == cluster_id)[0]
         affected_sensor_cell_values = data[affected_sensor_cell_idx]
         new_cluster = AnomalyCluster(
-            id=cluster_id,
-            sensor_cell_indezes=affected_sensor_cell_idx,
-            avg_load=np.nanmean(affected_sensor_cell_values)
+            id=cluster_id, sensor_cell_indezes=affected_sensor_cell_idx, avg_load=np.nanmean(affected_sensor_cell_values)
         )
         clusters.append(new_cluster)
     return clusters
 
-def jaccard_index(a: list|set, b: list|set) -> float:
+
+def jaccard_index(a: list | set, b: list | set) -> float:
     """Calculates the Jaccard similarity score for the given sets.
 
     :param a: first set of values
@@ -80,6 +91,7 @@ def jaccard_index(a: list|set, b: list|set) -> float:
     if overlaping == 0 or union == 0:
         return 0
     return overlaping / union
+
 
 def find_similar_cluster(cluster: AnomalyCluster, clusters: list[AnomalyCluster]) -> Optional[AnomalyCluster]:
     """Find the most similar cluster via the Jaccard similarity coefficient.
@@ -113,6 +125,7 @@ def get_cluster_labels(clusters: list[AnomalyCluster]) -> list:
     :return: list of cluster IDs
     """
     return list(map(lambda c: c.id, clusters))
+
 
 def track_clusters(prev_clusters: list[AnomalyCluster], next_clusters: list[AnomalyCluster]):
     """Track moving clusters from one point in time to another by assigning similar clusters the same ID.
@@ -154,6 +167,6 @@ def track_clusters(prev_clusters: list[AnomalyCluster], next_clusters: list[Anom
 
     # Ensure cluster labels start at `1` but retain sequential order
     # In some cases (e.g. a cluster splits into two) a offset could occur.
-    next_clusters.sort(key = lambda c: c.id)
+    next_clusters.sort(key=lambda c: c.id)
     for idx, cluster in enumerate(next_clusters):
         cluster.id = idx + 1

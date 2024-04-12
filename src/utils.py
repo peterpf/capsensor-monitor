@@ -1,5 +1,6 @@
 import logging
 
+
 def configure_logger(name: str, level=logging.DEBUG) -> logging.Logger:
     """Configures logging.
 
@@ -9,9 +10,7 @@ def configure_logger(name: str, level=logging.DEBUG) -> logging.Logger:
     :type level: str
     :return: logging.Logger
     """
-    logging.basicConfig(
-        level=logging.INFO,
-        format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
     logger.setLevel(level)
     return logger

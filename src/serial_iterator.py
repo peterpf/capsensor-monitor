@@ -1,5 +1,6 @@
 import serial
 
+
 class SerialIterator:
     """Wrapper around the serial object to iterate over the serial readline.
 

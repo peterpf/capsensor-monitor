@@ -1,6 +1,7 @@
 import numpy as np
 import collections
 import serial
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.animation import Animation
@@ -17,9 +18,12 @@ from config import AppConfig
 from pipeline import Pipeline
 from processor import Processor
 from serial_iterator import SerialIterator
-from file_writer import FileWriter
+from file_writer import FileWriter, PerformanceData
 
 logger = utils.configure_logger(__name__)
+
+matplotlib.use("TkAgg")
+
 
 class Application:
     """The main application. Sets up all relevant resources such as logging, serial connection, and visualization.
@@ -28,6 +32,7 @@ class Application:
     :param config: The application configuration
     :type config: AppConfig
     """
+
     _config: AppConfig
     """Application configuration."""
 
@@ -59,7 +64,8 @@ class Application:
 
     def __init__(self, config: AppConfig):
         if config.log_data:
-            self._filewriter = FileWriter(logging_directory_path=config.data_directory)
+            self._filewriter = FileWriter(config.data_directory)
+            self._filewriter.write_configuration(config)
 
         self._config = config
         sensor_shape = self._config.sensor_shape
@@ -71,13 +77,8 @@ class Application:
     def _init_pipeline(self):
         """Initialze the processing pipeline for the given sensor shape,
         sensitivity, and buffer size."""
-        processor = Processor(
-            sensor_shape=self._config.sensor_shape,
-            sensitivity=self._config.sensitivity)
-        self._pipeline = Pipeline(
-            processor=processor,
-            sensor_shape=self._config.sensor_shape,
-            buffer_size=self._config.buffer_size)
+        processor = Processor(sensor_shape=self._config.sensor_shape, sensitivity=self._config.sensitivity)
+        self._pipeline = Pipeline(processor=processor, sensor_shape=self._config.sensor_shape, buffer_size=self._config.buffer_size)
 
     def _init_data_queues(self):
         """Initialzes the sample buffer to track received samples over time."""
@@ -87,10 +88,7 @@ class Application:
 
     def _connect_serial(self):
         """Establish a connection to the serial device as specified in the configuration."""
-        serial_obj = serial.Serial(
-            self._config.serial_port,
-            self._config.baudrate,
-            timeout=self._config.connection_timeout)
+        serial_obj = serial.Serial(self._config.serial_port, self._config.baudrate, timeout=self._config.connection_timeout)
         self._serial_obj = serial_obj
         self._serial_iterator = SerialIterator(serial_obj)
 
@@ -105,10 +103,6 @@ class Application:
             # Parse data from command line into data matrix
             raw_data = decode_and_parse(serial_data, self._config.inverse_sensor_shape)
 
-            # Store in logfile if enabled
-            if self._filewriter is not None:
-                self._filewriter.write_raw_data(raw_data)
-
             # Process raw data
             pipeline_result = self._pipeline.process(raw_data)
 
@@ -116,15 +110,17 @@ class Application:
             self._data_queue.append(raw_data)
 
             # Generate a heatmap image from the processed data
-            main_artists = plot_utils.draw_annotated_matplotlib_heatmap(
-                ax_main,
-                self._config.sensor_shape,
-                raw_data,
-                pipeline_result)
-            top_k_artists = plot_utils.draw_top_k_timeseries(
-                np.array(list(self._data_queue)),
-                self._axis[1:],
-                pipeline_result)
+            main_artists = plot_utils.draw_annotated_matplotlib_heatmap(ax_main, self._config.sensor_shape, pipeline_result)
+            top_k_artists = plot_utils.draw_top_k_timeseries(np.array(list(self._data_queue)), self._axis[1:], pipeline_result)
+
+            # Store data in logfile if enabled
+            if self._filewriter is not None:
+                performance_data = PerformanceData(
+                    overall_processing_duration=pipeline_result.processing_duration,
+                    num_clusters=len(pipeline_result.anomaly_clusters),
+                )
+                self._filewriter.write_performance_data(performance_data)
+                self._filewriter.write_pipeline_result(pipeline_result)
 
             artists = [*main_artists, *top_k_artists]
             return artists
@@ -146,12 +142,7 @@ class Application:
         """Run the application: starts the rendering loop."""
 
         self._fig = plt.figure(layout="constrained")
-        gs = GridSpec(
-            nrows=3,
-            ncols=2,
-            figure=self._fig,
-            width_ratios=[0.3, 0.7]
-        )
+        gs = GridSpec(nrows=3, ncols=2, figure=self._fig, width_ratios=[0.3, 0.7])
         # Main plot
         ax_main = self._fig.add_subplot(gs[:, 0])
 
@@ -172,10 +163,11 @@ class Application:
         self._animation = animation.FuncAnimation(
             self._fig,
             func=self._update_animation,
-            frames=self._serial_iterator, # Provide frame data via SerialIterator
-            interval=0, # We don't want any artificial delay between frames, set to 0.
-            blit=True, # Optimize rendering of animation
-            cache_frame_data=False)
+            frames=self._serial_iterator,  # Provide frame data via SerialIterator
+            interval=0,  # We don't want any artificial delay between frames, set to 0.
+            blit=True,  # Optimize rendering of animation
+            cache_frame_data=False,
+        )
 
         plt.show()
 

@@ -12,13 +12,13 @@ if __name__ == "__main__":
         serial_port="/dev/ttyACM0",
         baudrate=115200,
         connection_timeout=0.1,
-        buffer_size=30,
-        top_k_buffer_size=100,
-        nrows=12,
-        ncols=21,
-        sensitivity=3.0,
-        log_data=False,
-        data_directory="/home/workspace/master-thesis/tmp_data/"
+        buffer_size=50,
+        top_k_buffer_size=80,
+        nrows=6,
+        ncols=6,
+        sensitivity=5.0,
+        log_data=True,
+        data_directory="tmp/capsense",
     )
 
     app = Application(config)

@@ -1,6 +1,7 @@
 import numpy as np
 from exceptions import InputParserException
 
+
 def decode_and_parse(serial_data: any, output_dim: tuple) -> str:
     """Decode the next line from the serial. Raises an InputParserException if something goes wrong.
 
@@ -15,6 +16,7 @@ def decode_and_parse(serial_data: any, output_dim: tuple) -> str:
         raise InputParserException(f"decoding failed, reason: {e}")
 
     return parse_string_input_to_numpy_array(decoded_data, output_dim)
+
 
 def parse_string_input_to_numpy_array(input: str, output_dim: tuple) -> np.array:
     """Converts the string to a numpy array, and reshapes it to follow the form:

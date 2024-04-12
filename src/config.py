@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 
+
 @dataclass
-class AppConfig():
+class AppConfig:
     """Application configuration"""
 
     serial_port: str
