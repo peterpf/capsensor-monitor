@@ -32,7 +32,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 pythonpath = [
-  "softsensormonitorapp"
+  "src"
 ]
 minversion = "6.0"
 addopts = "-ra -q"

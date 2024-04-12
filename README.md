@@ -32,6 +32,29 @@ Activate the virtual environment via
 
 Connect the hardware via a USB cable and find out the port name to which it is connected.
 
+### With nix flakes
+
+This project also provides a [Nix](nix.dev/) development environment.
+You can enter the dev environment by changing into the workspace folder and:
+
+* automatically activating the environment with [direnv](https://direnv.net), by running the following command:
+
+    ```bash
+    direnv allow .
+    ```
+
+* manually starting the environment with:
+
+    ```bash
+    nix develop
+    ```
+
+Run the pre-commit hooks with:
+
+    ```bash
+    nix flake check
+    ```
+
 ### Configuration
 
 The [AppConfig](./src/config.py) provides properties to configure the application.
@@ -58,7 +81,7 @@ config = AppConfig(
 Run the application with
 
 ```bash
-python3 src/soft-sensor-monitor/main.py
+python3 src/main.py
 ```
 
 ### Executing tests
