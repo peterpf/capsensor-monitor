@@ -1,10 +1,10 @@
 line-length = 140
-update-check = false
 target-version = "py310"
 fix = true
-unfixable = ["E711"]
 
-select = [
+lint.unfixable = ["E711"]
+
+lint.select = [
   # pyflakes
   "F",
   # pycodestyle
@@ -30,7 +30,7 @@ select = [
   "TCH",
 ]
 
-ignore = [
+lint.ignore = [
   # space before : (needed for how black formats slicing)
   # "E203",  # not yet implemented
   # module level import not at top of file
@@ -91,6 +91,9 @@ ignore = [
   "PLR2004",
   # Consider `elif` instead of `else` then `if` to remove indentation level
   "PLR5501",
+
+  # Remove to prevent unexpected behavior
+  "ISC001",
 ]
 
 exclude = [
@@ -105,12 +108,5 @@ exclude = [
   "env",
 ]
 
-[per-file-ignores]
-# relative imports allowed for asv_bench
-"asv_bench/*" = ["TID"]
-# to be enabled gradually
-"pandas/core/*" = ["PLR5501"]
-"pandas/tests/*" = ["B028"]
-"scripts/*" = ["B028"]
-# Keep this one enabled
-"pandas/_typing.py" = ["TCH"]
+[lint.per-file-ignores]
+"tests/*" = ["B028"]

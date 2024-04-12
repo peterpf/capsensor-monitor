@@ -1,10 +1,15 @@
 [tool.poetry]
-name = "soft-sensor-monitor"
+name = "capsense"
 version = "0.1.0"
 description = ""
-authors = ["Peter Pfaffeneder <peter.pfaffeneder@gmail.com>"]
+authors = ["Peter Egger <peter.egger@alumni.fh-kaernten.at>"]
 readme = "README.md"
-packages = [{include = "src"}]
+#packages = [{include = "src"}]
+license = "MIT"
+#package-mode = false
+
+[tool.poetry.scripts]
+poetry = "capsense:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
@@ -14,7 +19,7 @@ pandas = "^1.5.3"
 scikit-learn = "^1.2.2"
 scikit-image = "^0.20.0"
 pyserial = "^3.5"
-ruff = "^0.0.269"
+click = "^8.1.7"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.2"
@@ -27,14 +32,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 pythonpath = [
-  "src"
+  "softsensormonitorapp"
 ]
 minversion = "6.0"
 addopts = "-ra -q"
 testpaths = [
-  "src/app/",
   "tests/"
 ]
-
-[tool.ruff]
-line-length = 150
