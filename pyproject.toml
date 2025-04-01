@@ -2,7 +2,7 @@
 name = "soft-sensor-monitor"
 version = "0.1.0"
 description = ""
-authors = ["Peter Pfaffeneder <peter.pfaffeneder@gmail.com>"]
+authors = ["Peter Egger <peter.egger@alumni.fh-kaernten.at>"]
 readme = "README.md"
 packages = [{include = "src"}]
 
